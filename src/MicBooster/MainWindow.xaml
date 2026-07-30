@@ -629,7 +629,7 @@
             <!-- Three cards share this row at the default window size, so routing keeps the
                  largest share (it holds two device pickers) and presets the smallest. -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="1.25*" />
                 <ColumnDefinition Width="0.85*" />
                 <ColumnDefinition Width="1*" />
             </Grid.ColumnDefinitions>
@@ -641,7 +641,6 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" MinWidth="150">
@@ -659,33 +658,33 @@
                                       ItemTemplate="{StaticResource DeviceItem}"
                                       ToolTip="Pick your virtual cable to feed other apps, or your headphones to hear yourself." />
                         </StackPanel>
-
-                        <StackPanel Grid.Column="2" Margin="12,0,0,0" MinWidth="90">
-                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Buffer" />
-                            <ComboBox ItemsSource="{Binding BufferOptions}"
-                                      SelectedItem="{Binding SelectedBufferMs, Mode=TwoWay}"
-                                      IsEnabled="{Binding IsStopped}"
-                                      ToolTip="Smaller buffers mean less delay but glitch more easily on a busy machine. Set this while stopped.">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <TextBlock Text="{Binding StringFormat='{}{0} ms'}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </StackPanel>
                     </Grid>
 
-                    <!-- The latency readout shares the format line rather than taking a fourth
-                         column, which would leave the output picker too narrow to read a device
-                         name in now that a third card sits on this row. -->
-                    <DockPanel Margin="0,6,0,0">
-                        <StackPanel DockPanel.Dock="Right" Margin="16,0,0,0" MinWidth="130">
+                    <!-- Buffer and the latency readout moved onto one line below: with a third
+                         card sharing this row, four columns of pickers left the output device
+                         too narrow to read a device name in, and buffer belongs next to the
+                         latency and dropout figures it decides anyway. -->
+                    <DockPanel Margin="0,10,0,0">
+                        <TextBlock DockPanel.Dock="Left" Style="{StaticResource FieldLabelText}" Text="Buffer" />
+                        <ComboBox DockPanel.Dock="Left" MinWidth="90" VerticalAlignment="Center"
+                                  ItemsSource="{Binding BufferOptions}"
+                                  SelectedItem="{Binding SelectedBufferMs, Mode=TwoWay}"
+                                  IsEnabled="{Binding IsStopped}"
+                                  ToolTip="Smaller buffers mean less delay but glitch more easily on a busy machine. Set this while stopped.">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding StringFormat='{}{0} ms'}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <StackPanel DockPanel.Dock="Right" Margin="16,0,0,0" MinWidth="130"
+                                    VerticalAlignment="Center">
                             <TextBlock Style="{StaticResource ValueText}" Text="{Binding LatencyText}" />
                             <TextBlock Style="{StaticResource HintText}" Text="{Binding GlitchText}"
                                        TextAlignment="Right" />
                         </StackPanel>
                         <TextBlock Style="{StaticResource HintText}" Text="{Binding OutputFormatText}"
-                                   VerticalAlignment="Bottom" />
+                                   Margin="12,0,0,0" VerticalAlignment="Center" />
                     </DockPanel>
 
                     <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0"

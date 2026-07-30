@@ -296,4 +296,8 @@ tests/MicBooster.DspTests/         offline DSP verification
 
 ## Licence
 
-Do whatever you like with it.
+MIT — see [LICENSE](LICENSE). Do whatever you like with it.
+
+Built on [NAudio](https://github.com/naudio/NAudio) (MIT). The virtual-cable products it
+detects — VB-CABLE, VoiceMeeter, Virtual Audio Cable — are third-party software with their own
+licences; this app only detects and routes to them, and never bundles or installs them.

@@ -49,5 +49,5 @@ clipping. Live metering throughout, seven presets, global mute hotkey, tray icon
 
 Fully device agnostic: any sample rate, bit depth and channel count, with hot-plug handling.
 
-See [`README.md`](../blob/main/README.md) for the full manual and
-[`READ ME FIRST.txt`](../releases/latest) for the short version.
+`READ-ME-FIRST.txt` below is the short version. The full manual is in
+[README.md](https://github.com/Connor-Enge/mic-booster/blob/main/README.md).

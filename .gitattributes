@@ -1,0 +1,14 @@
+# Normalise line endings in the repo, and check out the Windows-facing files as CRLF so
+# they behave in Notepad and cmd.exe.
+* text=auto eol=lf
+
+*.ps1  text eol=crlf
+*.bat  text eol=crlf
+*.txt  text eol=crlf
+*.csproj text eol=crlf
+*.xaml text eol=crlf
+*.manifest text eol=crlf
+
+*.ico  binary
+*.exe  binary
+*.png  binary

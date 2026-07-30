@@ -43,7 +43,9 @@ jobs:
           if (-not (Test-Path $exe)) { throw "build.ps1 did not produce $exe" }
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
           Set-Content -Path 'dist/MicBooster.exe.sha256' -Value "$hash  MicBooster.exe" -Encoding ascii
-          Copy-Item 'READ ME FIRST.txt' 'dist/' -Force
+          # Hyphenated on the way out: GitHub rewrites spaces in asset names to dots,
+          # which turns "READ ME FIRST.txt" into the unreadable "READ.ME.FIRST.txt".
+          Copy-Item 'READ ME FIRST.txt' 'dist/READ-ME-FIRST.txt' -Force
           $mb = [Math]::Round((Get-Item $exe).Length / 1MB, 1)
           Write-Host "MicBooster.exe is $mb MB, sha256 $hash"
 
@@ -56,7 +58,7 @@ jobs:
           RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           $tag = $env:RELEASE_TAG
-          $assets = @('dist/MicBooster.exe', 'dist/MicBooster.exe.sha256', 'dist/READ ME FIRST.txt')
+          $assets = @('dist/MicBooster.exe', 'dist/MicBooster.exe.sha256', 'dist/READ-ME-FIRST.txt')
 
           gh release view $tag *> $null
           if ($LASTEXITCODE -eq 0) {

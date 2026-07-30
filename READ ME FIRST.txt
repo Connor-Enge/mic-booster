@@ -1,0 +1,115 @@
+===============================================================
+  MIC BOOSTER  -  make your microphone louder (and better)
+===============================================================
+
+  Just run MicBooster.exe. Nothing to install.
+
+  Windows may show a "Windows protected your PC" box the first
+  time, because the app isn't code-signed. Click "More info"
+  then "Run anyway".
+
+
+---------------------------------------------------------------
+  IF YOU JUST WANT IT LOUDER (30 seconds, no setup)
+---------------------------------------------------------------
+
+  1. Pick your microphone in the "Microphone" box, top left.
+     Talk. The meter should move. If it doesn't, wrong mic.
+
+  2. Drag "Windows level" up.
+
+  3. If "Hardware boost" isn't greyed out, set it to +10 or +20.
+
+  That's it. Every app on your PC is now louder, immediately.
+  You don't even need to press Start.
+
+
+---------------------------------------------------------------
+  IF YOU WANT IT TO SOUND GOOD TOO
+---------------------------------------------------------------
+
+  1. Set "Output device" (bottom) to your headphones.
+  2. Pick the preset "Quiet Mic Rescue".
+  3. Press START.
+
+  You'll now hear yourself. Drag BOOST until the lower meter
+  sits mostly in the green and amber. Red constantly = too much.
+
+  Try the other presets. "Voice Chat" is the everyday one.
+
+
+---------------------------------------------------------------
+  TO MAKE IT SHOW UP AS A MIC IN DISCORD / ZOOM / OBS
+---------------------------------------------------------------
+
+  Look at the "Virtual microphone" panel at the bottom.
+
+  Windows only lets a *driver* create a microphone, so no
+  program can just invent one. Instead we send the processed
+  sound down a free "virtual cable", and Discord listens to the
+  other end of it. The app sets this up for you.
+
+  FIRST TIME:
+
+  1. If the panel says no cable was found, press
+     "Get VB-CABLE (free)". Install it, then RESTART your PC.
+
+  2. Press "Set up" in that panel. One click - it picks the
+     right output and starts processing.
+
+  3. Optional but nice: type a name in that panel and press
+     "Rename". The device then shows up in Discord as
+     "Mic Booster" instead of "CABLE Output (VB-Audio...)".
+     Restart Discord afterwards so it notices the new name.
+     "Restore" puts the old name back.
+
+  4. In Discord: Settings > Voice & Video > INPUT DEVICE,
+     choose that device.
+
+  5. IMPORTANT: in the same Discord screen, turn OFF
+     "Automatic Gain Control". If you leave it on, Discord
+     re-adjusts your volume and undoes all the processing.
+     This is the #1 reason people think it isn't working.
+
+  Keep Mic Booster running with START pressed.
+
+  Heads up: you can send to the cable OR hear yourself in your
+  headphones, not both at the same time. Doing both needs a
+  mixer app called VoiceMeeter. That's a Windows limitation.
+
+  Don't want to bother with any of this? The "JUST WANT IT
+  LOUDER" steps at the top work everywhere with no setup.
+
+
+---------------------------------------------------------------
+  SOMETHING'S WRONG
+---------------------------------------------------------------
+
+  Meter doesn't move
+      Wrong microphone selected, or Windows is blocking it:
+      Settings > Privacy & security > Microphone >
+      "Let desktop apps access your microphone" = On
+
+  Discord is still quiet
+      Either Discord is still set to your raw microphone
+      instead of the cable, or Discord's "Automatic Gain
+      Control" is still on. Check both.
+
+  The new name didn't appear in Discord
+      Restart Discord. Programs only read device names
+      when they start up.
+
+  Crackling / stuttering
+      Raise "Buffer" (bottom) to 50 or 100 ms.
+
+  Sounds distorted or crunchy
+      BOOST is too high. Turn it down.
+
+  It cuts off the ends of my words
+      Turn the Gate off, or lower its Threshold.
+
+  Sounds like it's breathing / pumping
+      Raise Auto Level "Speed", or lower Compressor "Ratio".
+
+
+  Full documentation is in README.md

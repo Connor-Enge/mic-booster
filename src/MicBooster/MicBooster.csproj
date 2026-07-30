@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <AssemblyName>MicBooster</AssemblyName>
+    <RootNamespace>MicBooster</RootNamespace>
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <Product>Mic Booster</Product>
+    <AssemblyTitle>Mic Booster</AssemblyTitle>
+    <Company>Mic Booster</Company>
+    <Description>Real-time microphone loudness control for Windows</Description>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Copyright>Copyright (c) 2026</Copyright>
+
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+    <!-- The audio thread relies on tight float math; allow unsafe for buffer work. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+    <!-- WFO0003 tells WinForms apps to declare DPI awareness via ApplicationHighDpiMode
+         instead of the manifest. This is a WPF app (WinForms is enabled only for the tray
+         NotifyIcon), and WPF takes per-monitor DPI awareness from the manifest, so the
+         manifest is the correct home for it here. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\app.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

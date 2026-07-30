@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish, e.g. v1.0.0'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      # Never ship a build whose DSP checks have not passed.
+      - name: DSP verification
+        run: dotnet run --project tests/MicBooster.DspTests -c Release
+
+      # Same script contributors run locally, so the released binary is built exactly the
+      # way a local build is.
+      - name: Publish single-file exe
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $exe = 'dist/MicBooster.exe'
+          if (-not (Test-Path $exe)) { throw "build.ps1 did not produce $exe" }
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          Set-Content -Path 'dist/MicBooster.exe.sha256' -Value "$hash  MicBooster.exe" -Encoding ascii
+          Copy-Item 'READ ME FIRST.txt' 'dist/' -Force
+          $mb = [Math]::Round((Get-Item $exe).Length / 1MB, 1)
+          Write-Host "MicBooster.exe is $mb MB, sha256 $hash"
+
+      # Re-running a release must not hard-fail, so an existing release is updated in place
+      # rather than treated as an error.
+      - name: Create or update GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          $tag = $env:RELEASE_TAG
+          $assets = @('dist/MicBooster.exe', 'dist/MicBooster.exe.sha256', 'dist/READ ME FIRST.txt')
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists; replacing its assets."
+            gh release upload $tag @assets --clobber
+            if ($LASTEXITCODE -ne 0) { throw "Failed to upload assets to $tag" }
+            gh release edit $tag --notes-file '.github/release-notes.md' --title "Mic Booster $tag" --latest
+            if ($LASTEXITCODE -ne 0) { throw "Failed to update release $tag" }
+          }
+          else {
+            gh release create $tag @assets `
+              --title "Mic Booster $tag" `
+              --notes-file '.github/release-notes.md' `
+              --latest
+            if ($LASTEXITCODE -ne 0) { throw "Failed to create release $tag" }
+          }

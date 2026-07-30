@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-verify:
+    name: Build and verify
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: |
+          dotnet restore src/MicBooster/MicBooster.csproj
+          dotnet restore tests/MicBooster.DspTests/MicBooster.DspTests.csproj
+
+      # Warnings are treated as errors because the project is at zero warnings today, and
+      # the cheapest time to notice a new one is before it lands.
+      - name: Build
+        run: dotnet build src/MicBooster/MicBooster.csproj -c Release --no-restore -warnaserror
+
+      # 32 offline checks over the real DSP classes. No audio hardware required, which is
+      # the whole reason they are written this way: they run on a headless CI box.
+      - name: DSP verification
+        run: dotnet run --project tests/MicBooster.DspTests -c Release --no-restore

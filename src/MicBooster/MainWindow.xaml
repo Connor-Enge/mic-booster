@@ -1,0 +1,860 @@
+<Window x:Class="MicBooster.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ctl="clr-namespace:MicBooster.Controls"
+        xmlns:app="clr-namespace:MicBooster"
+        Title="Mic Booster"
+        Width="1180" Height="820"
+        MinWidth="980" MinHeight="700"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <app:AbsoluteValueConverter x:Key="AbsoluteValue" />
+        <app:InverseBooleanConverter x:Key="InverseBoolean" />
+        <app:EnumLabelConverter x:Key="EnumLabel" />
+
+        <!-- DisplayMemberPath does not reach a ComboBox's closed selection box under this
+             theme's template, so the item templates are explicit. -->
+        <DataTemplate x:Key="DeviceItem">
+            <TextBlock Text="{Binding FriendlyName}" TextTrimming="CharacterEllipsis" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="LabelItem">
+            <TextBlock Text="{Binding Label}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="NameItem">
+            <TextBlock Text="{Binding Name}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="EnumItem">
+            <TextBlock Text="{Binding Converter={StaticResource EnumLabel}}" />
+        </DataTemplate>
+
+        <!-- The theme deliberately styles only the controls it needs; text boxes would
+             otherwise come out system-white in the middle of a dark window. -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource TextBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <!-- Sub-panels inside a card: one module each, visually subordinate to the card. -->
+        <Style x:Key="ModulePanel" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource PanelAltBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10" />
+            <Setter Property="Margin" Value="0,12,0,0" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="16,14,16,14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- ======================= header ======================= -->
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                <TextBlock Text="Mic Booster" FontSize="22" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextBrush}" />
+                <TextBlock Style="{StaticResource HintText}"
+                           Text="Full control over how loud your microphone is" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Margin="28,0,20,0" VerticalAlignment="Center">
+                <Border HorizontalAlignment="Left" CornerRadius="12" Padding="12,5"
+                        BorderThickness="1" Background="{StaticResource PanelAltBrush}">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource OkBrush}" />
+                                </DataTrigger>
+                                <!-- Last trigger wins, so an error always overrides "running". -->
+                                <DataTrigger Binding="{Binding HasError}" Value="True">
+                                    <Setter Property="BorderBrush" Value="{StaticResource DangerBrush}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Margin="0,0,9,0" VerticalAlignment="Center">
+                            <Ellipse.Style>
+                                <Style TargetType="Ellipse">
+                                    <Setter Property="Fill" Value="{StaticResource TextFaintBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                            <Setter Property="Fill" Value="{StaticResource OkBrush}" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding HasError}" Value="True">
+                                            <Setter Property="Fill" Value="{StaticResource DangerBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Ellipse.Style>
+                        </Ellipse>
+                        <TextBlock Text="{Binding StatusText}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+                <!-- One line, ellipsised: the detail string names both devices and both
+                     formats, and letting it wrap would resize the header as state changes. -->
+                <TextBlock Style="{StaticResource HintText}" Margin="4,5,0,0"
+                           Text="{Binding StatusDetail}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <ToggleButton Style="{StaticResource SwitchToggle}" Content="Mute"
+                              IsChecked="{Binding Muted, Mode=TwoWay}"
+                              VerticalAlignment="Center"
+                              ToolTip="Silences the processed stream instantly. Windows' own mute is in the Microphone panel." />
+                <Button Style="{StaticResource PrimaryButton}" Margin="16,0,0,0"
+                        MinWidth="150" Height="44" FontSize="16"
+                        Content="{Binding EngineButtonText}"
+                        Command="{Binding ToggleEngineCommand}"
+                        ToolTip="Starts capturing from the microphone, processing it, and sending it to the chosen output." />
+            </StackPanel>
+        </Grid>
+
+        <!-- ======================= error banner ======================= -->
+        <Border Grid.Row="1" Margin="0,12,0,0" CornerRadius="6" Padding="12,9"
+                Background="{StaticResource DangerBrush}"
+                Visibility="{Binding HasError, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="{Binding ErrorText}" TextWrapping="Wrap" Foreground="White" />
+        </Border>
+
+        <!-- ======================= body ======================= -->
+        <ScrollViewer Grid.Row="2" Margin="0,12,0,0" Padding="0,0,4,0"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="1.3*" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- left column: the microphone itself -->
+                <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeaderText}" Text="Microphone" />
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="These are Windows' own microphone controls. They take effect the moment you move them, they affect every app on the PC, and they work whether Mic Booster is processing or not." />
+
+                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Input device" Margin="0,16,0,0" />
+                        <ComboBox ItemsSource="{Binding InputDevices}"
+                                  SelectedItem="{Binding SelectedInputDevice, Mode=TwoWay}"
+                                  ItemTemplate="{StaticResource DeviceItem}"
+                                  ToolTip="The microphone Mic Booster listens to. Changing it restarts processing." />
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding InputFormatText}" />
+
+                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Channel" Margin="0,14,0,0" />
+                        <ComboBox ItemsSource="{Binding ChannelModes}"
+                                  SelectedItem="{Binding SelectedChannelMode, Mode=TwoWay}"
+                                  ItemTemplate="{StaticResource EnumItem}"
+                                  ToolTip="Interfaces often put the mic on input 1 only. Mixing every channel would then halve the level and pull in a silent one, so pick the channel the mic is actually on." />
+
+                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Windows level" Margin="0,18,0,0" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Slider Grid.Column="0" Minimum="0" Maximum="100" IsSnapToTickEnabled="False"
+                                    VerticalAlignment="Center"
+                                    IsEnabled="{Binding WindowsLevelSupported}"
+                                    Value="{Binding WindowsMicLevelPercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="The very same slider as the one in Windows' microphone properties. Start here: if this is low, everything downstream is fighting a losing battle." />
+                            <TextBlock Grid.Column="1" Style="{StaticResource ValueText}" Margin="10,0,0,0"
+                                       MinWidth="54" TextAlignment="Right" VerticalAlignment="Center"
+                                       Text="{Binding WindowsLevelText}" />
+                        </Grid>
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding WindowsLevelDbText}" />
+
+                        <Grid Margin="0,12,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <CheckBox Grid.Column="0" Content="Muted in Windows" VerticalAlignment="Center"
+                                      IsChecked="{Binding WindowsMuted, Mode=TwoWay}"
+                                      ToolTip="Mutes the device for the whole system. Not every microphone supports this." />
+                            <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Content="Apply"
+                                    Command="{Binding ApplyWindowsLevelCommand}"
+                                    ToolTip="Writes the level above back to the device now, in case another app moved it." />
+                        </Grid>
+
+                        <WrapPanel Margin="0,8,0,0">
+                            <Button Style="{StaticResource SecondaryButton}" Margin="0,6,8,0"
+                                    Content="Windows sound settings"
+                                    Command="{Binding OpenSoundSettingsCommand}"
+                                    ToolTip="Opens the system sound page, for anything Mic Booster cannot reach." />
+                            <Button Style="{StaticResource SecondaryButton}" Margin="0,6,0,0"
+                                    Content="Refresh devices"
+                                    Command="{Binding RefreshDevicesCommand}"
+                                    ToolTip="Re-scans for microphones and outputs. Use it after plugging something in." />
+                        </WrapPanel>
+
+                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Hardware mic boost" Margin="0,18,0,0" />
+                        <ComboBox ItemsSource="{Binding HardwareBoostSteps}"
+                                  ItemTemplate="{StaticResource LabelItem}"
+                                  SelectedItem="{Binding SelectedHardwareBoost, Mode=TwoWay}"
+                                  IsEnabled="{Binding HardwareBoostAvailable}"
+                                  ToolTip="Analogue gain inside the sound hardware. It is cleaner than any digital boost, so use it before turning the boost slider up. Only some devices offer it." />
+                        <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Text="{Binding HardwareBoostStatus}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- centre column: loudness, the whole point of the app -->
+                <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="6,0,6,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeaderText}" Text="Loudness" />
+
+                        <DockPanel Margin="0,14,0,0">
+                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                       Text="{Binding InputLevelText}" />
+                            <TextBlock DockPanel.Dock="Right" Text="CLIP" Margin="0,0,12,0"
+                                       FontWeight="Bold" Foreground="{StaticResource DangerBrush}"
+                                       Visibility="{Binding InputClipping, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Input" />
+                        </DockPanel>
+                        <ctl:LevelMeter Height="30" Margin="0,5,0,0"
+                                        PeakDb="{Binding InputPeakDb}"
+                                        RmsDb="{Binding InputRmsDb}"
+                                        Clipping="{Binding InputClipping}" />
+
+                        <!-- The one control most people will ever touch, so it gets its own
+                             raised panel rather than sitting in the run of parameters. -->
+                        <Border Background="{StaticResource PanelAltBrush}" BorderThickness="1" CornerRadius="8"
+                                BorderBrush="{StaticResource AccentDimBrush}" Padding="12,10" Margin="0,20,0,0">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}" FontSize="30"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding InputGainDb, StringFormat='{}{0:+0.0;-0.0;0.0} dB'}" />
+                                    <TextBlock Text="BOOST" FontSize="17" FontWeight="Bold" VerticalAlignment="Center"
+                                               Foreground="{StaticResource AccentBrush}" />
+                                </DockPanel>
+                                <Slider Minimum="-24" Maximum="48" TickFrequency="6" IsSnapToTickEnabled="False"
+                                        SmallChange="0.5" LargeChange="3" Margin="0,8,0,0"
+                                        Value="{Binding InputGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        ToolTip="Clean digital gain applied before anything else. This is the control that makes a quiet microphone loud." />
+                                <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Text="Turn this up until the input meter sits in its upper third while you talk normally. The limiter stops it ever clipping." />
+                            </StackPanel>
+                        </Border>
+
+                        <Border Style="{StaticResource ModulePanel}" Margin="0,18,0,0">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                               Text="{Binding AutoLevelGainText}" />
+                                    <CheckBox Style="{StaticResource ModuleToggle}" Content="Auto level" Margin="0"
+                                              IsChecked="{Binding AutoLevelEnabled, Mode=TwoWay}"
+                                              ToolTip="A slow rider that keeps your long-term loudness on target, so you sound the same leaning in or sitting back." />
+                                </DockPanel>
+                                <!-- Magnitude only: the sign is in the readout beside the toggle. -->
+                                <ctl:GainReductionMeter Height="10" Margin="0,7,0,0" MaxReductionDb="40"
+                                                        ReductionDb="{Binding AutoLevelGainDb, Converter={StaticResource AbsoluteValue}}" />
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding AutoLevelTargetDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Target loudness" />
+                                    </DockPanel>
+                                    <Slider Minimum="-40" Maximum="-6" IsSnapToTickEnabled="False"
+                                            Value="{Binding AutoLevelTargetDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How loud the rider aims to keep you. Higher is louder; around -16 dB suits voice chat." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding AutoLevelMaxBoostDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Max boost" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="40" IsSnapToTickEnabled="False"
+                                            Value="{Binding AutoLevelMaxBoostDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="The most the rider may turn you up. Large values rescue a very quiet mic but also lift room noise." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding AutoLevelMaxCutDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Max cut" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="40" IsSnapToTickEnabled="False"
+                                            Value="{Binding AutoLevelMaxCutDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="The most the rider may turn you down when you get loud." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding AutoLevelSpeedMs, StringFormat='{}{0:0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Speed" />
+                                    </DockPanel>
+                                    <Slider Minimum="50" Maximum="5000" IsSnapToTickEnabled="False"
+                                            Value="{Binding AutoLevelSpeedMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How quickly it reacts. Slower is smoother and less pumpy; faster catches sudden changes." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <DockPanel Margin="0,20,0,0">
+                            <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                       Text="{Binding OutputLevelText}" />
+                            <TextBlock DockPanel.Dock="Right" Text="CLIP" Margin="0,0,12,0"
+                                       FontWeight="Bold" Foreground="{StaticResource DangerBrush}"
+                                       Visibility="{Binding OutputClipping, Converter={StaticResource BoolToVisibility}}" />
+                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Output" />
+                        </DockPanel>
+                        <ctl:LevelMeter Height="30" Margin="0,5,0,0"
+                                        PeakDb="{Binding OutputPeakDb}"
+                                        RmsDb="{Binding OutputRmsDb}"
+                                        Clipping="{Binding OutputClipping}" />
+
+                        <StackPanel Margin="0,16,0,0">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                           Text="{Binding OutputGainDb, StringFormat='{}{0:+0.0;-0.0;0.0} dB'}" />
+                                <TextBlock Style="{StaticResource FieldLabelText}" Text="Output trim" />
+                            </DockPanel>
+                            <Slider Minimum="-24" Maximum="24" IsSnapToTickEnabled="False"
+                                    Value="{Binding OutputGainDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="Final trim after all processing, before the limiter's ceiling." />
+                        </StackPanel>
+
+                        <StackPanel Margin="0,10,0,0">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                           Text="{Binding OutputVolumePercent, StringFormat='{}{0:0} %'}" />
+                                <TextBlock Style="{StaticResource FieldLabelText}" Text="Output volume" />
+                            </DockPanel>
+                            <Slider Minimum="0" Maximum="100" IsSnapToTickEnabled="False"
+                                    Value="{Binding OutputVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                    ToolTip="Plain volume on the way to the output device. Handy when monitoring through headphones." />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- right column: the processor -->
+                <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="6,0,0,0">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource SectionHeaderText}" Text="Processor" />
+                        <CheckBox Style="{StaticResource ModuleToggle}" Margin="0,8,0,0"
+                                  Content="Processing enabled"
+                                  IsChecked="{Binding ProcessorEnabled, Mode=TwoWay}"
+                                  ToolTip="Master bypass. Off means the microphone passes straight through, untouched, for an honest A/B." />
+
+                        <!-- high-pass -->
+                        <Border Style="{StaticResource ModulePanel}">
+                            <StackPanel>
+                                <CheckBox Style="{StaticResource ModuleToggle}" Content="High-pass filter"
+                                          IsChecked="{Binding HighPassEnabled, Mode=TwoWay}"
+                                          ToolTip="Removes desk rumble, footsteps and breath thumps before they get boosted." />
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding HighPassCutoffHz, StringFormat='{}{0:0} Hz'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Cutoff" />
+                                    </DockPanel>
+                                    <Slider Minimum="20" Maximum="500" IsSnapToTickEnabled="False"
+                                            Value="{Binding HighPassCutoffHz, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Everything below this is rolled off. 80-100 Hz is safe for speech." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- gate -->
+                        <Border Style="{StaticResource ModulePanel}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource TextFaintBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding GateOpen}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource OkBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                        <TextBlock Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateAttenuationDb, StringFormat='{}{0:0.0} dB'}" />
+                                    </StackPanel>
+                                    <CheckBox Style="{StaticResource ModuleToggle}" Content="Noise gate" Margin="0"
+                                              IsChecked="{Binding GateEnabled, Mode=TwoWay}"
+                                              ToolTip="Turns the mic down between phrases so fans, keyboards and room noise are not boosted along with your voice." />
+                                </DockPanel>
+                                <!-- Scaled to the configured range so the bar means "fully shut"
+                                     at the right edge whatever the range is set to. -->
+                                <ctl:GainReductionMeter Height="10" Margin="0,7,0,0"
+                                                        MaxReductionDb="{Binding GateRangeDb}"
+                                                        ReductionDb="{Binding GateAttenuationDb, Converter={StaticResource AbsoluteValue}}" />
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateThresholdDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Threshold" />
+                                    </DockPanel>
+                                    <Slider Minimum="-90" Maximum="0" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Set this just above your room noise and below your quietest speech." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateRangeDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Range" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="80" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateRangeDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How far down it turns when closed. Modest values duck rather than mute, which sounds more natural." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateHysteresisDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Hysteresis" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="24" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateHysteresisDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Extra margin the signal must fall before the gate shuts again. Raise it if the gate chatters." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateAttackMs, StringFormat='{}{0:0.0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Attack" />
+                                    </DockPanel>
+                                    <Slider Minimum="0.1" Maximum="200" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateAttackMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How fast it opens. Too slow clips the front of words." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateHoldMs, StringFormat='{}{0:0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Hold" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="2000" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateHoldMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Minimum time the gate stays open, so short gaps between words do not close it." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding GateReleaseMs, StringFormat='{}{0:0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Release" />
+                                    </DockPanel>
+                                    <Slider Minimum="1" Maximum="3000" IsSnapToTickEnabled="False"
+                                            Value="{Binding GateReleaseMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How gently it closes once you stop talking." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- compressor -->
+                        <Border Style="{StaticResource ModulePanel}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding CompressorReductionDb, StringFormat='{}{0:-0.0;-0.0;0.0} dB'}" />
+                                    <CheckBox Style="{StaticResource ModuleToggle}" Content="Compressor" Margin="0"
+                                              IsChecked="{Binding CompressorEnabled, Mode=TwoWay}"
+                                              ToolTip="Evens out loud and quiet speech, so the average level can be much higher without peaks distorting." />
+                                </DockPanel>
+                                <ctl:GainReductionMeter Height="10" Margin="0,7,0,0"
+                                                        ReductionDb="{Binding CompressorReductionDb}" />
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorThresholdDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Threshold" />
+                                    </DockPanel>
+                                    <Slider Minimum="-60" Maximum="0" IsSnapToTickEnabled="False"
+                                            Value="{Binding CompressorThresholdDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Level above which it starts turning you down." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorRatio, StringFormat='{}{0:0.0} : 1'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Ratio" />
+                                    </DockPanel>
+                                    <Slider Minimum="1" Maximum="20" IsSnapToTickEnabled="False"
+                                            Value="{Binding CompressorRatio, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How hard it squeezes above the threshold. 3:1 is gentle, 8:1 is firm." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorAttackMs, StringFormat='{}{0:0.0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Attack" />
+                                    </DockPanel>
+                                    <Slider Minimum="0.1" Maximum="200" IsSnapToTickEnabled="False"
+                                            Value="{Binding CompressorAttackMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How quickly it clamps down. Very fast settings dull consonants." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorReleaseMs, StringFormat='{}{0:0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Release" />
+                                    </DockPanel>
+                                    <Slider Minimum="5" Maximum="3000" IsSnapToTickEnabled="False"
+                                            Value="{Binding CompressorReleaseMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How quickly it lets go. Too fast pumps; too slow squashes the following words." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorKneeDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Knee" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="24" IsSnapToTickEnabled="False"
+                                            Value="{Binding CompressorKneeDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Softens the transition into compression. Wider is less noticeable." />
+                                </StackPanel>
+
+                                <CheckBox Margin="0,12,0,0" Content="Automatic make-up gain"
+                                          IsChecked="{Binding CompressorAutoMakeup, Mode=TwoWay}"
+                                          ToolTip="Works out how much level the compressor took away and puts it back, so loudness stays roughly constant as you change the ratio." />
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding CompressorMakeupDb, StringFormat='{}{0:+0.0;-0.0;0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Make-up gain" />
+                                    </DockPanel>
+                                    <Slider Minimum="-12" Maximum="36" IsSnapToTickEnabled="False"
+                                            IsEnabled="{Binding CompressorAutoMakeup, Converter={StaticResource InverseBoolean}}"
+                                            Value="{Binding CompressorMakeupDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Manual level added after compression. Only used when automatic make-up is off." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- limiter -->
+                        <Border Style="{StaticResource ModulePanel}">
+                            <StackPanel>
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                               VerticalAlignment="Center"
+                                               Text="{Binding LimiterReductionDb, StringFormat='{}{0:-0.0;-0.0;0.0} dB'}" />
+                                    <CheckBox Style="{StaticResource ModuleToggle}" Content="Limiter" Margin="0"
+                                              IsChecked="{Binding LimiterEnabled, Mode=TwoWay}"
+                                              ToolTip="The safety net. Nothing gets past the ceiling, so boosting hard can never produce crunchy clipped audio. Leave it on." />
+                                </DockPanel>
+                                <ctl:GainReductionMeter Height="10" Margin="0,7,0,0" MaxReductionDb="12"
+                                                        ReductionDb="{Binding LimiterReductionDb}" />
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding LimiterCeilingDb, StringFormat='{}{0:0.0} dB'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Ceiling" />
+                                    </DockPanel>
+                                    <Slider Minimum="-12" Maximum="0" IsSnapToTickEnabled="False"
+                                            Value="{Binding LimiterCeilingDb, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Absolute maximum output level. -1 dB leaves a little headroom for whatever comes next." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding LimiterReleaseMs, StringFormat='{}{0:0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Release" />
+                                    </DockPanel>
+                                    <Slider Minimum="1" Maximum="1000" IsSnapToTickEnabled="False"
+                                            Value="{Binding LimiterReleaseMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="How quickly the limiter recovers after catching a peak." />
+                                </StackPanel>
+
+                                <StackPanel Margin="0,10,0,0">
+                                    <DockPanel>
+                                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource ValueText}"
+                                                   Text="{Binding LimiterLookaheadMs, StringFormat='{}{0:0.0} ms'}" />
+                                        <TextBlock Style="{StaticResource FieldLabelText}" Text="Lookahead" />
+                                    </DockPanel>
+                                    <Slider Minimum="0" Maximum="10" IsSnapToTickEnabled="False"
+                                            Value="{Binding LimiterLookaheadMs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ToolTip="Lets the limiter see peaks coming so it catches them cleanly. Every millisecond here is a millisecond of delay." />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ======================= bottom bar ======================= -->
+        <Grid Grid.Row="3" Margin="0,12,0,0">
+            <!-- Three cards share this row at the default window size, so routing keeps the
+                 largest share (it holds two device pickers) and presets the smallest. -->
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.2*" />
+                <ColumnDefinition Width="0.85*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardBorder}" Margin="0,0,6,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionHeaderText}" Text="Output &amp; routing" />
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" MinWidth="150">
+                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Send processed audio to" />
+                            <ComboBox ItemsSource="{Binding RoutingModes}"
+                                      SelectedItem="{Binding SelectedRouting, Mode=TwoWay}"
+                                      ItemTemplate="{StaticResource EnumItem}"
+                                      ToolTip="Choose whether the processed audio is written to an output device or only measured." />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Margin="12,0,0,0">
+                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Output device" />
+                            <ComboBox ItemsSource="{Binding OutputDevices}"
+                                      SelectedItem="{Binding SelectedOutputDevice, Mode=TwoWay}"
+                                      ItemTemplate="{StaticResource DeviceItem}"
+                                      ToolTip="Pick your virtual cable to feed other apps, or your headphones to hear yourself." />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Margin="12,0,0,0" MinWidth="90">
+                            <TextBlock Style="{StaticResource FieldLabelText}" Text="Buffer" />
+                            <ComboBox ItemsSource="{Binding BufferOptions}"
+                                      SelectedItem="{Binding SelectedBufferMs, Mode=TwoWay}"
+                                      IsEnabled="{Binding IsStopped}"
+                                      ToolTip="Smaller buffers mean less delay but glitch more easily on a busy machine. Set this while stopped.">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding StringFormat='{}{0} ms'}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- The latency readout shares the format line rather than taking a fourth
+                         column, which would leave the output picker too narrow to read a device
+                         name in now that a third card sits on this row. -->
+                    <DockPanel Margin="0,6,0,0">
+                        <StackPanel DockPanel.Dock="Right" Margin="16,0,0,0" MinWidth="130">
+                            <TextBlock Style="{StaticResource ValueText}" Text="{Binding LatencyText}" />
+                            <TextBlock Style="{StaticResource HintText}" Text="{Binding GlitchText}"
+                                       TextAlignment="Right" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource HintText}" Text="{Binding OutputFormatText}"
+                                   VerticalAlignment="Bottom" />
+                    </DockPanel>
+
+                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,6,0,0"
+                               Text="{Binding RoutingHelpText}" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource CardBorder}" Margin="6,0,6,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionHeaderText}" Text="Presets" />
+
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Grid.Column="0" ItemsSource="{Binding Presets}"
+                                  ItemTemplate="{StaticResource NameItem}"
+                                  SelectedItem="{Binding SelectedPreset, Mode=TwoWay}"
+                                  ToolTip="Ready-made starting points. Picking one replaces every processor setting." />
+                        <Button Grid.Column="1" Style="{StaticResource DangerButton}" Margin="8,0,0,0"
+                                Content="Delete" Command="{Binding DeletePresetCommand}"
+                                ToolTip="Removes the selected preset. Built-in presets cannot be deleted." />
+                    </Grid>
+
+                    <Grid Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0" Text="{Binding NewPresetName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Name for a new preset holding the current settings." />
+                        <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                Content="Save" Command="{Binding SavePresetCommand}" />
+                        <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                Content="Reset" Command="{Binding ResetProcessorCommand}"
+                                ToolTip="Puts every processor control back to its default." />
+                    </Grid>
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <CheckBox Content="Hide to tray when minimised" Margin="0,4,18,0"
+                                  IsChecked="{Binding MinimizeToTray, Mode=TwoWay}"
+                                  ToolTip="Keeps processing while the window is out of the way." />
+                        <CheckBox Content="Start processing on launch" Margin="0,4,0,0"
+                                  IsChecked="{Binding StartEngineOnLaunch, Mode=TwoWay}" />
+                    </WrapPanel>
+
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Style="{StaticResource FieldLabelText}"
+                                   Text="Mute hotkey" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <TextBox Grid.Column="1" Text="{Binding MuteHotkey, Mode=TwoWay}"
+                                 ToolTip="A global shortcut such as Ctrl+Alt+M, which works even when another app has focus. Clear the box to disable it." />
+                    </Grid>
+                    <TextBlock x:Name="HotkeyStatusText" Style="{StaticResource HintText}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <!-- The one thing most people install this app for, so it gets its own card rather
+                 than living as a paragraph of advice inside "Output and routing". -->
+            <Border Grid.Column="2" Style="{StaticResource CardBorder}" Margin="6,0,0,0">
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionHeaderText}" Margin="0,0,0,4"
+                               Text="Virtual microphone" />
+                    <TextBlock Style="{StaticResource HintText}"
+                               Text="Make Discord, Zoom, OBS and games hear the processed audio"
+                               ToolTip="Windows only lets a signed driver publish a microphone, so no ordinary program can create one. Mic Booster plays the processed sound into a free virtual audio cable instead, and the other app records from the far end of that cable. That is how every streaming setup does it." />
+
+                    <TextBlock Margin="0,10,0,0" FontSize="12" TextWrapping="Wrap"
+                               Text="{Binding VirtualMicStatus}"
+                               ToolTip="A virtual audio cable is a driver that pairs a playback device with a recording device. Mic Booster only has to find one; it does not need to be a driver itself.">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{StaticResource WarnBrush}" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VirtualMicAvailable}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource OkBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <Grid Margin="0,12,0,0"
+                          Visibility="{Binding VirtualMicAvailable, Converter={StaticResource BoolToVisibility}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Style="{StaticResource PrimaryButton}"
+                                MinWidth="104" Height="36" Content="Set up"
+                                Command="{Binding SetUpVirtualMicCommand}"
+                                ToolTip="Switches the output to the cable, saves that, and starts processing. After this, other apps can hear you." />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding VirtualMicIsActive, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="&#x2713;" FontSize="15" FontWeight="Bold"
+                                       VerticalAlignment="Center" Foreground="{StaticResource OkBrush}" />
+                            <TextBlock Text="Active" Margin="6,0,0,0" FontWeight="SemiBold"
+                                       VerticalAlignment="Center" Foreground="{StaticResource OkBrush}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <StackPanel Margin="0,12,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding VirtualMicAvailable}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                                Content="Get VB-CABLE (free)"
+                                Command="{Binding InstallVirtualCableCommand}"
+                                ToolTip="Opens the download page in your browser. Mic Booster never downloads or runs an installer by itself." />
+                        <!-- Read-only text box rather than a label: if no browser opens, the
+                             address still has to be selectable so it can be copied. -->
+                        <TextBox Text="https://vb-audio.com/Cable/" IsReadOnly="True"
+                                 Margin="0,8,0,0" Padding="0" BorderThickness="0"
+                                 Background="Transparent" FontSize="11"
+                                 Foreground="{StaticResource TextDimBrush}"
+                                 ToolTip="The official download page. Select and copy it if the button cannot open a browser." />
+                        <TextBlock Style="{StaticResource HintText}" Margin="0,6,0,0"
+                                   Text="It installs a driver, so restart the PC after installing, then press Refresh devices." />
+                    </StackPanel>
+
+                    <TextBlock Style="{StaticResource FieldLabelText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                               Text="Name it shows under in Discord's microphone list" />
+                    <Grid Margin="0,4,0,0" IsEnabled="{Binding VirtualMicAvailable}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox Grid.Column="0"
+                                 Text="{Binding VirtualMicDisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="A cable ships with a name like &quot;CABLE Output&quot;, which means nothing in a device list. This is what other apps will call it instead." />
+                        <Button Grid.Column="1" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0"
+                                Content="Rename" Command="{Binding RenameVirtualMicCommand}"
+                                ToolTip="Renames the cable's recording device for the whole PC. Reversible, and Discord shows the new name once it is restarted." />
+                        <Button Grid.Column="2" Style="{StaticResource SecondaryButton}" Margin="6,0,0,0"
+                                MinWidth="64" Padding="8,7" FontSize="12"
+                                Content="Restore" Command="{Binding RestoreVirtualMicNameCommand}"
+                                ToolTip="Puts the device's original Windows name back." />
+                    </Grid>
+
+                    <TextBlock Style="{StaticResource HintText}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Text="{Binding VirtualMicSteps}" />
+
+                    <Border Margin="0,10,0,0" CornerRadius="6" Padding="9,7" BorderThickness="1"
+                            Background="{StaticResource PanelAltBrush}"
+                            BorderBrush="{StaticResource AccentDimBrush}"
+                            Visibility="{Binding HasVirtualMicMessage, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding VirtualMicMessage}" TextWrapping="Wrap" FontSize="12" />
+                    </Border>
+
+                    <Button Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,10,0,0"
+                            Content="Sound control panel"
+                            Command="{Binding OpenRecordingDevicesCommand}"
+                            ToolTip="Opens the Recording tab of Windows' sound panel, where the same device can be renamed, tested or set as default by hand." />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
